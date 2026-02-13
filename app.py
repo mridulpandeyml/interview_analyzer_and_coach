@@ -10,9 +10,14 @@ from src.tone_analysis.pitch_analysis import pitch
 from src.tone_analysis.stability import stability
 from src.tone_analysis.hesitation_confidence import hesitation_index,confidence_score
 from src.nlp_analysis.relevance import analyze_relevance
+from src.nlp_analysis.structure import structure_score
+from src.depth_analysis.specificity_depth import depth
+from src.feedback.llm_feedback import generate_feedback
+#from src.feedback import metrics
 st.title("🎤 AI Interview & Communication Coach")
 st.subheader(" Audio to Transcript")
 question=st.text_input("### Interview Questions")
+
 duration = st.slider("Recording duration (seconds)", 5, 60, 30)
 
 if st.button("Start Recording"):
@@ -42,6 +47,10 @@ if st.button("Start Recording"):
     confidence=confidence_score(hesitation,Stability,pitch_variance)
     # Relevance
     relevance=analyze_relevance(question,transcript)
+    # Structure
+    structur_analysis=structure_score(transcript)
+    # DEPTH 
+    depth_analysis=depth(question,transcript)
 
     #analysis=st.selectbox("Analyze",["SPEECH","TONE","ANSWER RELEVANCE"])
     st.markdown("### Speech Analysis")
@@ -73,3 +82,41 @@ if st.button("Start Recording"):
         st.markdown("### ⚠️ Off-topic segments")
         for s in relevance["off topic sentences"]:
             st.write("-", s)
+    
+    st.markdown("### Structure Analysis")
+    st.write({
+        "length score":structur_analysis["length_score"],
+        "ordering score":structur_analysis["ordering_score"],
+        "section covered":structur_analysis["section_coverage"],
+        "structure score":structur_analysis["structure_score"]
+    })
+    #DEPTH
+
+    st.markdown("### depth analysis")
+    st.write({
+        "coverage score":depth_analysis["coverage_score"],
+        "specificity":depth_analysis["specificity_score"],
+        "depth":depth_analysis["depth_score"],
+        "level":depth_analysis["level"]
+
+    })
+    metrics = {
+    "wpm":Speech_rate,    
+    "pause_count": pause_analysis["pause_count"], 
+    "filler_density": Filler_stats["filler_density"], 
+    "repetition_score": rept["repetition score"],
+    "confidence_score": confidence, 
+    "hesitation_score": hesitation, 
+    "pitch_variation": pitch_variance,
+    "relevance_score": relevance["relevance score"],
+    "structure_score": structur_analysis["structure_score"],     
+    "depth_level": depth_analysis["level"]
+}
+
+    feedback=generate_feedback(
+        question,
+        transcript,
+        metrics
+    )
+    st.markdown("### AI FEEDBACK")
+    st.write(feedback)

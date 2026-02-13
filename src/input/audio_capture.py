@@ -6,7 +6,7 @@ import os
 
 SAMPLE_RATE = 16000
 
-def record_audio(duration=30, save_dir="data/raw/audio"):
+def record_audio(duration, save_dir="data/raw/audio"):
     os.makedirs(save_dir, exist_ok=True)
 
     session_id = str(uuid.uuid4())
