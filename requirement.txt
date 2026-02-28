@@ -1,42 +1,27 @@
-streamlit
-numpy
-pandas
-scikit-learn
-matplotlib
-plotly
+streamlit>=1.32.0
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
 
-librosa
-pydub
-sounddevice
+# Audio Processing
+librosa>=0.10.1
+soundfile>=0.12.1
 
+# Speech Recording (local usage)
+sounddevice>=0.4.6
+
+# Speech-to-Text
 openai-whisper
 
-spacy
-nltk
-sentence-transformers
+# Deep Learning Backend (required by Whisper)
+torch
 
-opencv-python
-mediapipe
-
-sqlite-utils
-streamlit
-numpy
-pandas
+# NLP & Embeddings
+sentence-transformers>=2.2.2
 scikit-learn
-matplotlib
-plotly
 
-librosa
-pydub
-sounddevice
+# LLM API
+cohere>=5.0.0
 
-openai-whisper
-
-spacy
-nltk
-sentence-transformers
-
-opencv-python
-mediapipe
-
-sqlite-utils
+# Environment variables (optional but recommended)
+python-dotenv
