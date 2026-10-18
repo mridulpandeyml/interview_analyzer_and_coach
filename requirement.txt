@@ -9,6 +9,7 @@ soundfile>=0.12.1
 
 # Speech Recording (local usage)
 sounddevice>=0.4.6
+streamlit-mic-recorder
 
 # Speech-to-Text
 openai-whisper

@@ -1,25 +1,23 @@
-import sounddevice as sd
-import numpy as np
-from scipy.io.wavfile import write
-import uuid
-import os
 
-SAMPLE_RATE = 16000
+import streamlit as st
+from streamlit_mic_recorder import mic_recorder
 
-def record_audio(duration, save_dir="data/raw/audio"):
-    os.makedirs(save_dir, exist_ok=True)
 
-    session_id = str(uuid.uuid4())
-    file_path = os.path.join(save_dir, f"{session_id}.wav")
+def record_audio():
+    audio = mic_recorder(
+        start_prompt="Start recording",
+        stop_prompt="Stop recording",
+        just_once=True,
+        use_container_width=True,
+        format="wav",
+        key="communication_enhancer_mic",
+    )
 
-    print("🎙️ Recording started...")
-    audio = sd.rec(int(duration * SAMPLE_RATE),
-                    samplerate=SAMPLE_RATE,
-                    channels=1,
-                    dtype='int16')
-    sd.wait()
-    print("✅ Recording finished")
+    if audio is None:
+        return None
 
-    write(file_path, SAMPLE_RATE, audio)
+    if not audio.get("bytes"):
+        st.warning("No audio was captured. Please try recording again.")
+        return None
 
-    return file_path, session_id
+    return audio

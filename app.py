@@ -1,4 +1,7 @@
 import streamlit as st
+import tempfile
+import uuid
+from pathlib import Path
 from src.input.audio_capture import record_audio
 from src.stt.whisper_stt import transcribe_audio
 from src.storage.session_logger import save_transcript
@@ -18,105 +21,136 @@ st.title("🎤 AI Interview & Communication Coach")
 st.subheader(" Audio to Transcript")
 question=st.text_input("### Interview Questions")
 
-duration = st.slider("Recording duration (seconds)", 5, 60, 30)
 
-if st.button("Start Recording"):
-    audio_path, session_id = record_audio(duration)
-    
-    with st.spinner("Transcribing audio..."):
-        transcript, segments = transcribe_audio(audio_path)
+# Browser-based recording
+audio = record_audio()
 
-    save_path = save_transcript(session_id, transcript, segments)
 
-    st.success("Transcript generated successfully!")
+if audio is not None and audio.get("bytes"):
+    audio_path = None
+    st.markdown("### Debug: Recorded Audio")
+    st.audio(audio["bytes"], format="audio/wav")
+    st.write("Audio size:", len(audio["bytes"]), "bytes")
+    st.write("Sample rate:", audio.get("sample_rate"))
+    try:
+        # Save browser-recorded audio temporarily for Whisper/librosa
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav", delete=False
+        ) as temp_audio:
+            temp_audio.write(audio["bytes"])
+            audio_path = temp_audio.name
 
-    st.markdown("### 📝 Transcript")
-    st.write(transcript)
-    st.markdown("### 💾 Saved At")
-    st.code(save_path)
-    time_duration=segments[1]["end"] if segments else 0.0
-    # Speech Analysis
-    Speech_rate=speech_rate(transcript,time_duration)
-    Filler_stats=filler_detect(transcript)
-    rept=repetition(transcript)
-    pause_analysis=detect_pause(segments)
-    # Tone Analysis
-    pitch_variance=pitch(audio_path)
-    Stability=stability(audio_path)
-    hesitation=hesitation_index(pause_analysis,Filler_stats,pitch_variance)
-    confidence=confidence_score(hesitation,Stability,pitch_variance)
-    # Relevance
-    relevance=analyze_relevance(question,transcript)
-    # Structure
-    structur_analysis=structure_score(transcript)
-    # DEPTH 
-    depth_analysis=depth(question,transcript)
+        # Create a session ID for saving the transcript
+        session_id = str(uuid.uuid4())
 
-    #analysis=st.selectbox("Analyze",["SPEECH","TONE","ANSWER RELEVANCE"])
-    st.markdown("### Speech Analysis")
-    st.write({
-    "Speech Rate (WPM)": Speech_rate,
-    "Total Fillers Used": Filler_stats["total fillers used"],
-    "Filler Density": Filler_stats["filler_density"],
-    "Repetition Score": rept["repetition score"],
-    "Pauses":pause_analysis["pause_count"],
-    "avg pause":pause_analysis["avg pause"]
-    })
-    
-    st.markdown("### 🎤 Tone and Confidence")
-    st.write({
-        "Pitch variation":pitch_variance,
-        "stability":Stability,
-        "Hesitation":hesitation,
-        "Confidence meter":confidence
-    })
+        with st.spinner("Transcribing audio..."):
+            transcript, segments = transcribe_audio(audio_path)
 
-    st.markdown("### Answer Analysis")
-    st.write({
-    "relevance Score": relevance["relevance score"],
-    "semantic similarity": relevance["semantic similarity"],
-    "keyword overlap ratio": relevance["keyword overlap ratio"]
-    })
+        save_path = save_transcript(session_id, transcript, segments)
 
-    if relevance["off topic sentences"]:
-        st.markdown("### ⚠️ Off-topic segments")
-        for s in relevance["off topic sentences"]:
-            st.write("-", s)
-    
-    st.markdown("### Structure Analysis")
-    st.write({
-        "length score":structur_analysis["length_score"],
-        "ordering score":structur_analysis["ordering_score"],
-        "section covered":structur_analysis["section_coverage"],
-        "structure score":structur_analysis["structure_score"]
-    })
-    #DEPTH
+        st.success("Transcript generated successfully!")
+        st.markdown("### 📝 Transcript")
+        st.write(transcript)
 
-    st.markdown("### depth analysis")
-    st.write({
-        "coverage score":depth_analysis["coverage_score"],
-        "specificity":depth_analysis["specificity_score"],
-        "depth":depth_analysis["depth_score"],
-        "level":depth_analysis["level"]
+        st.markdown("### 💾 Saved At")
+        st.code(save_path)
 
-    })
-    metrics = {
-    "wpm":Speech_rate,    
-    "pause_count": pause_analysis["pause_count"], 
-    "filler_density": Filler_stats["filler_density"], 
-    "repetition_score": rept["repetition score"],
-    "confidence_score": confidence, 
-    "hesitation_score": hesitation, 
-    "pitch_variation": pitch_variance,
-    "relevance_score": relevance["relevance score"],
-    "structure_score": structur_analysis["structure_score"],     
-    "depth_level": depth_analysis["level"]
-}
+        # Calculate duration from the final segment
+        time_duration = (
+            segments[-1]["end"] if segments else 0.0
+        )
 
-    feedback=generate_feedback(
-        question,
-        transcript,
-        metrics
-    )
-    st.markdown("### AI FEEDBACK")
-    st.write(feedback)
+        # Speech analysis
+        Speech_rate = speech_rate(transcript, time_duration)
+        Filler_stats = filler_detect(transcript)
+        rept = repetition(transcript)
+        pause_analysis = detect_pause(segments)
+
+        # Tone analysis
+        pitch_variance = pitch(audio_path)
+        Stability = stability(audio_path)
+        hesitation = hesitation_index(
+            pause_analysis, Filler_stats, pitch_variance
+        )
+        confidence = confidence_score(
+            hesitation, Stability, pitch_variance
+        )
+
+
+        # Answer analysis
+        relevance = analyze_relevance(question, transcript)
+        structur_analysis = structure_score(transcript)
+        depth_analysis = depth(question, transcript)
+
+        # Metrics for the LLM
+        metrics = {
+            "wpm": Speech_rate,
+            "pause_count": pause_analysis["pause_count"],
+            "filler_density": Filler_stats["filler_density"],
+            "repetition_score": rept["repetition score"],
+            "confidence_score": confidence,
+            "hesitation_score": hesitation,
+            "pitch_variation": pitch_variance,
+            "relevance_score": relevance["relevance score"],
+            "structure_score": structur_analysis["structure_score"],
+            "depth_level": depth_analysis["level"],
+        }
+
+        with st.spinner("Generating AI feedback..."):
+            feedback = generate_feedback(
+                question, transcript, metrics
+            )
+
+        st.markdown("### 🤖 AI Feedback")
+        st.write(feedback)
+
+        st.markdown("### Speech Analysis")
+        st.write({
+            "Speech Rate (WPM)": Speech_rate,
+            "Total Fillers Used": Filler_stats["total fillers used"],
+            "Filler Density": Filler_stats["filler_density"],
+            "Repetition Score": rept["repetition score"],
+            "Pauses": pause_analysis["pause_count"],
+            "Average Pause": pause_analysis["avg pause"],
+        })
+
+        st.markdown("### 🎤 Tone and Confidence")
+        st.write({
+            "Pitch Variation": pitch_variance,
+            "Stability": Stability,
+            "Hesitation": hesitation,
+            "Confidence Meter": confidence,
+        })
+
+        st.markdown("### Answer Analysis")
+        st.write({
+            "Relevance Score": relevance["relevance score"],
+            "Semantic Similarity": relevance["semantic similarity"],
+            "Keyword Overlap Ratio": relevance["keyword overlap ratio"],
+        })
+
+        if relevance["off topic sentences"]:
+            st.markdown("### ⚠️ Off-topic segments")
+            for sentence in relevance["off topic sentences"]:
+                st.write("-", sentence)
+
+        st.markdown("### Structure Analysis")
+        st.write({
+            "Length Score": structur_analysis["length_score"],
+            "Ordering Score": structur_analysis["ordering_score"],
+            "Sections Covered": structur_analysis["section_coverage"],
+            "Structure Score": structur_analysis["structure_score"],
+        })
+
+        st.markdown("### Depth Analysis")
+        st.write({
+            "Coverage Score": depth_analysis["coverage_score"],
+            "Specificity": depth_analysis["specificity_score"],
+            "Depth": depth_analysis["depth_score"],
+            "Level": depth_analysis["level"],
+        })
+
+    finally:
+        # Delete the temporary audio file after processing
+        if audio_path and Path(audio_path).exists():
+            Path(audio_path).unlink()
